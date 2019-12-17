@@ -1,0 +1,215 @@
+---
+title: "final_project"
+output: html_document
+---
+
+## load data and convert to a dataframe
+
+```{r}
+mydata = read.table('H:/Personal/Breast_Cancer_Data/wdbc.data',header=FALSE,sep = ",")
+colnames(mydata) <- c("ID.number", "Diagnosis", 
+                      "mean.radius", "mean.texture", "mean.perimeter", "mean.area","mean.smoothness","mean.compactness", 
+                      "mean.concavity", "mean.concave.points","mean.symmetry", "mean.fractal.dimension", 
+                      "std.radius", "std.texture", "std.perimeter", "std.area","std.smoothness", "std.compactness",
+                      "std.concavity", "std.concave.points", "std.symmetry", "std.fractal.dimension",
+                      "max.radius", "max.texture", "max.perimeter", "max.area","max.smoothness", "max.compactness",
+                      "max.concavity", "max.concave.points", "max.symmetry", "max.fractal.dimension")
+mydata$ID.number = NULL
+head(mydata)
+```
+
+## feature selection
+
+```{r load relevant libraries, include=FALSE}
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(mlbench)
+library(glmnet)
+library(corrplot)
+```
+
+```{r correlation}
+correlation_matrix = cor(mydata[,-1])
+corrplot(correlation_matrix, order = "hclust")
+ind_corr = findCorrelation(correlation_matrix, cutoff = 0.9, verbose = TRUE)
+highly_correlated <- colnames(mydata[, -1])[ind_corr]
+mydata_rm = mydata[, -ind_corr-1]
+```
+
+```{r importance}
+rfmodel = randomForest(Diagnosis ~ ., data=mydata_rm,  importance = TRUE, oob.times = 15, confusion = TRUE)
+importance(rfmodel)
+
+rf_pred = predict(rfmodel, newdata = test)
+confusionMatrix(rf_pred, reference = test$Diagnosis)
+```
+
+```{r remove unimportant features}
+mydata_rm2 = mydata_rm
+mydata_rm2$mean.smoothness = NULL
+mydata_rm2$mean.symmetry = NULL
+mydata_rm2$mean.fractal.dimension = NULL
+mydata_rm2$std.texture = NULL
+mydata_rm2$std.smoothness = NULL
+mydata_rm2$std.compactness = NULL
+mydata_rm2$std.concavity = NULL
+mydata_rm2$std.concave.points = NULL
+mydata_rm2$std.symmetry = NULL
+mydata_rm2$std.fractal.dimension = NULL
+mydata_rm2$max.smoothness = NULL
+mydata_rm2$max.symmetry = NULL
+mydata_rm2$max.fractal.dimension = NULL
+colnames(mydata_rm2[,-1])
+```
+
+## Logistic Regression
+
+```{r, include=FALSE}
+library(caret)
+library(ROCR)
+library(pROC)
+library(MASS)
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+library(ggfortify)
+library(glmnet)
+library(tidyverse)
+```
+
+```{r warning = FALSE}
+train_size <- floor(0.75 * nrow(mydata_rm2))
+set.seed(1)
+train_pos <- sample(seq_len(nrow(mydata_rm2)), size = train_size)
+train <- mydata_rm2[train_pos,]
+test <- mydata_rm2[-train_pos,]
+ctrl <- trainControl(method = "repeatedcv", repeats = 15, classProbs = T, savePredictions = T)
+lr <- train(Diagnosis ~ ., data = train, method = "glm", family= "binomial", trControl = ctrl)
+lr
+```
+
+```{r warning = FALSE}
+plot(x = roc(predictor = lr$pred$M,
+             response = lr$pred$obs)$specificities, 
+     y = roc(predictor = lr$pred$M, 
+             response = lr$pred$obs)$sensitivities,
+     col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+
+legend("bottomright", legend = paste("Belign v Malignant --", 
+                                     roc(predictor = lr$pred$M,
+                                         response = lr$pred$obs)$auc,
+                                     sep = ""), col = c("blue"), fill = c("blue"))
+```
+
+```{r}
+lr_pred <- predict(lr, newdata = test)
+confusionMatrix(lr_pred, reference = test$Diagnosis)
+```
+
+```{r warning = FALSE}
+train_size <- floor(0.75 * nrow(mydata_rm))
+set.seed(1)
+train_pos <- sample(seq_len(nrow(mydata_rm)), size = train_size)
+train <- mydata_rm[train_pos,]
+test <- mydata_rm[-train_pos,]
+ctrl <- trainControl(method = "repeatedcv", repeats = 15, classProbs = T, savePredictions = T)
+lr <- train(Diagnosis ~ ., data = train, method = "glm", family= "binomial", trControl = ctrl)
+lr
+```
+
+```{r warning = FALSE}
+plot(x = roc(predictor = lr$pred$M,
+             response = lr$pred$obs)$specificities, 
+     y = roc(predictor = lr$pred$M, 
+             response = lr$pred$obs)$sensitivities,
+     col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+
+legend("bottomright", legend = paste("Belign v Malignant --", 
+                                     roc(predictor = lr$pred$M,
+                                         response = lr$pred$obs)$auc,
+                                     sep = ""), col = c("blue"), fill = c("blue"))
+```
+
+```{r}
+lr_pred <- predict(lr, newdata = test)
+confusionMatrix(lr_pred, reference = test$Diagnosis)
+```
+
+```{r warning = FALSE}
+train_size <- floor(0.75 * nrow(mydata))
+set.seed(1)
+train_pos <- sample(seq_len(nrow(mydata)), size = train_size)
+train <- mydata[train_pos,]
+test <- mydata[-train_pos,]
+ctrl <- trainControl(method = "repeatedcv", repeats = 15, classProbs = T, savePredictions = T)
+lr <- train(Diagnosis ~ ., data = train, method = "glm", family= "binomial", trControl = ctrl)
+lr
+```
+
+```{r warning = FALSE}
+plot(x = roc(predictor = lr$pred$M,
+             response = lr$pred$obs)$specificities, 
+     y = roc(predictor = lr$pred$M, 
+             response = lr$pred$obs)$sensitivities,
+     col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+
+legend("bottomright", legend = paste("Belign v Malignant --", 
+                                     roc(predictor = lr$pred$M,
+                                         response = lr$pred$obs)$auc,
+                                     sep = ""), col = c("blue"), fill = c("blue"))
+```
+
+```{r}
+lr_pred <- predict(lr, newdata = test)
+confusionMatrix(lr_pred, reference = test$Diagnosis)
+```
+
+## random forest
+
+```{r}
+rf <- randomForest(Diagnosis ~ ., data = train)
+rf
+```
+
+```{r warning = FALSE}
+rf.roc<-roc(train$Diagnosis,rf$votes[,1])
+plot(rf.roc,xlim = c(1, 0),ylim = c(0, 1))
+auc(rf.roc)
+```
+
+```{r}
+rf_pred = predict(rf, newdata = test)
+confusionMatrix(rf_pred, reference = test$Diagnosis)
+```
+
+## SVM 
+
+```{r}
+control = trainControl(method = "repeatedcv", repeats = 5, classProbs = T, savePredictions = T)
+svm_linear = train(Diagnosis ~ .,  data = train, method = "svmLinear", tuneLength = 10, trControl = control)
+svm_radial = train(Diagnosis ~ .,  data = train, method = "svmRadial", tuneLength = 10, trControl = control)
+svm_linear
+svm_radial
+```
+
+```{r}
+roc(predictor = svm_linear$pred$M, response = svm_linear$pred$obs)$auc
+plot(x = roc(predictor = svm_linear$pred$M, response = svm_linear$pred$obs)$specificities, 
+     y = roc(predictor = svm_linear$pred$M, response = svm_linear$pred$obs)$sensitivities, 
+     col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+
+roc(predictor = svm_radial$pred$M, response = svm_radial$pred$obs)$auc
+plot(x = roc(predictor = svm_radial$pred$M, response = svm_radial$pred$obs)$specificities, 
+     y = roc(predictor = svm_radial$pred$M, response = svm_radial$pred$obs)$sensitivities, 
+     col= "blue", xlim = c(1, 0), type ="l", ylab = "Sensitivity", xlab = "Specificity")
+```
+## Test Set 
+
+```{r}
+svm_test_linear = predict(svm_linear, newdata = test)
+confusionMatrix(svm_test_linear, reference = test$Diagnosis)
+
+svm_test_radial = predict(svm_radial, newdata = test)
+confusionMatrix(svm_test_radial, reference = test$Diagnosis)
+```
